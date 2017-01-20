@@ -69,7 +69,7 @@ OpenGLWindow::~OpenGLWindow()
 {
     delete m_device;
 }
-//! [2]
+
 void OpenGLWindow::render(QPainter *painter)
 {
     Q_UNUSED(painter);

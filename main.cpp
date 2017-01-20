@@ -57,11 +57,10 @@
 #include <qdebug.h>
 #include <QtCore/qmath.h>
 
-//! [1]
-class TriangleWindow : public OpenGLWindow
+class glWindow : public OpenGLWindow
 {
 public:
-    TriangleWindow();
+    glWindow();
 
     void initialize() Q_DECL_OVERRIDE;
     void render() Q_DECL_OVERRIDE;
@@ -69,17 +68,17 @@ public:
 private:
     GLuint m_posAttr;
     GLuint m_colAttr;
+    GLuint m_pointSizeAttr;
     GLuint m_matrixUniform;
 
     QOpenGLShaderProgram *m_program;
     int m_frame;
 };
 
-TriangleWindow::TriangleWindow()
+glWindow::glWindow()
     : m_program(0)
     , m_frame(0)
-{
-}
+{}
 
 int main(int argc, char **argv)
 {
@@ -88,9 +87,9 @@ int main(int argc, char **argv)
     QSurfaceFormat format;
     format.setSamples(16);
 
-    TriangleWindow window;
+    glWindow window;
     window.setFormat(format);
-    window.resize(640, 480);
+    window.resize(1000, 480);
     window.show();
 
     window.setAnimating(true);
@@ -101,12 +100,14 @@ int main(int argc, char **argv)
 
 static const char *vertexShaderSource =
         "attribute highp vec4 posAttr;\n"
+        "attribute mediump float pointSizeAttr;\n"
         "attribute lowp vec4 colAttr;\n"
         "varying lowp vec4 col;\n"
         "uniform highp mat4 matrix;\n"
         "void main() {\n"
         "   col = colAttr;\n"
         "   gl_Position = matrix * posAttr;\n"
+        "   gl_PointSize = 12.0f;\n"
         "}\n";
 
 static const char *fragmentShaderSource =
@@ -115,7 +116,7 @@ static const char *fragmentShaderSource =
         "   gl_FragColor = col;\n"
         "}\n";
 
-void TriangleWindow::initialize()
+void glWindow::initialize()
 {
     m_program = new QOpenGLShaderProgram(this);
     m_program->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
@@ -123,10 +124,11 @@ void TriangleWindow::initialize()
     m_program->link();
     m_posAttr = m_program->attributeLocation("posAttr");
     m_colAttr = m_program->attributeLocation("colAttr");
+    m_pointSizeAttr = m_program->attributeLocation("pointSizeAttr");
     m_matrixUniform = m_program->uniformLocation("matrix");
 }
 
-void TriangleWindow::render()
+void glWindow::render()
 {
     const qreal retinaScale = devicePixelRatio();
     glViewport(0, 0, width() * retinaScale, height() * retinaScale);
@@ -134,9 +136,13 @@ void TriangleWindow::render()
 
     glClear(GL_COLOR_BUFFER_BIT);
     glClearColor(1,1,1,1);
+    glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+    glEnable(GL_POINT_SMOOTH);
+    glEnable(GL_LINE_SMOOTH);
+    glEnable(GL_BLEND) ;
+    glHint(GL_POINT_SMOOTH, GL_NICEST); //图像渲染质量
 
     m_program->bind();
-
     QMatrix4x4 matrix;
     matrix.perspective(60.0f, 4.0f/3.0f, 0.1f, 100.0f);
     matrix.translate(0, 0, -2);
@@ -145,29 +151,51 @@ void TriangleWindow::render()
     m_program->setUniformValue(m_matrixUniform, matrix);
 
     GLfloat vertices[] = {
-        0.0f, 0.707f,
-        -0.5f, -0.5f,
-        0.5f, -0.5f
+        0.0f, 0.707f,-0.5f,
+        -0.5f,0.5f, -0.5f,
+        0.5f,0.5f, 0.5f,
+        0.1f,0.1f, 0.1f,
+        0.4f,0.4f, 0.2f,
+        -0.2f,-0.3f,0.5f
     };
 
     GLfloat colors[] = {
         0.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 0.0f
     };
 
-    glVertexAttribPointer(m_posAttr, 2, GL_FLOAT, GL_FALSE, 0, vertices);
+
+    GLfloat pointSize[] = {
+        11.0f, 11.0f, 11.0f,11.0f,11.0f,11.0f
+    };
 
 
-    qDebug()<<glGetError();
 
+    //qDebug()<<glGetError();
+
+    glVertexAttribPointer(m_posAttr, 3, GL_FLOAT, GL_FALSE, 0, vertices);
+    glVertexAttribPointer(m_pointSizeAttr, 1, GL_FLOAT, GL_FALSE, 0, pointSize);
     glVertexAttribPointer(m_colAttr, 3, GL_FLOAT, GL_FALSE, 0, colors);
 
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
+    glEnableVertexAttribArray(2);
 
-    glDrawArrays(GL_POINTS, 0, 3);
 
+
+
+    glLineWidth(0.7f);
+    glDrawArrays(GL_POINTS, 0, sizeof(vertices)/sizeof(vertices[0])/3);
+    glDrawArrays(GL_LINE_STRIP, 0, sizeof(vertices)/sizeof(vertices[0])/3);
+
+
+
+    glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
 
@@ -175,4 +203,3 @@ void TriangleWindow::render()
 
     ++m_frame;
 }
-//! [5]
