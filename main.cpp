@@ -1,95 +1,74 @@
-/****************************************************************************
-**
-** Copyright (C) 2016 The Qt Company Ltd.
-** Contact: https://www.qt.io/licensing/
-**
-** This file is part of the documentation of the Qt Toolkit.
-**
-** $QT_BEGIN_LICENSE:BSD$
-** Commercial License Usage
-** Licensees holding valid commercial Qt licenses may use this file in
-** accordance with the commercial license agreement provided with the
-** Software or, alternatively, in accordance with the terms contained in
-** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see https://www.qt.io/terms-conditions. For further
-** information use the contact form at https://www.qt.io/contact-us.
-**
-** BSD License Usage
-** Alternatively, you may use this file under the terms of the BSD license
-** as follows:
-**
-** "Redistribution and use in source and binary forms, with or without
-** modification, are permitted provided that the following conditions are
-** met:
-**   * Redistributions of source code must retain the above copyright
-**     notice, this list of conditions and the following disclaimer.
-**   * Redistributions in binary form must reproduce the above copyright
-**     notice, this list of conditions and the following disclaimer in
-**     the documentation and/or other materials provided with the
-**     distribution.
-**   * Neither the name of The Qt Company Ltd nor the names of its
-**     contributors may be used to endorse or promote products derived
-**     from this software without specific prior written permission.
-**
-**
-** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-** OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-** LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-** DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-** THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-** (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-** OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
-**
-** $QT_END_LICENSE$
-**
-****************************************************************************/
-
-#include "openglwindow.h"
-
 #include <QtGui/QGuiApplication>
-#include <QtGui/QMatrix4x4>
-#include <QtGui/QOpenGLShaderProgram>
-#include <QtGui/QScreen>
-#include <qdebug.h>
-#include <QtCore/qmath.h>
+#include "display.h"
 
-class glWindow : public OpenGLWindow
+#include <qdebug.h>
+
+class NeuroPoint
 {
 public:
-    glWindow();
-
-    void initialize() Q_DECL_OVERRIDE;
-    void render() Q_DECL_OVERRIDE;
-
-private:
-    GLuint m_posAttr;
-    GLuint m_colAttr;
-    GLuint m_pointSizeAttr;
-    GLuint m_matrixUniform;
-
-    QOpenGLShaderProgram *m_program;
-    int m_frame;
+    int x = 0;
+    int y = 0;
+    int z = 0;
+    NeuroPoint(int m_x,int m_y,int m_z) {
+        x=m_x;
+        y=m_y;
+        z=m_z;
+    };
 };
 
-glWindow::glWindow()
-    : m_program(0)
-    , m_frame(0)
-{}
+//邻接表表节点
+struct Neuro_EdgeNode
+{
+    size_t adjvertex;	//临接点域，顶点对应序号
+    Neuro_EdgeNode *next = NULL;	//指向下一个邻接点的指针域
+};
+
+//邻接表顶点节点
+struct Neuro_VertexNode
+{
+    NeuroPoint vertex;	//顶点域
+    Neuro_EdgeNode *firstedge = NULL;	//边表头指针
+    void print() const;
+};
 
 int main(int argc, char **argv)
 {
     QGuiApplication app(argc, argv);
 
-    QSurfaceFormat format;
-    format.setSamples(16);
-
-    glWindow window;
-    window.setFormat(format);
+    display window;
     window.resize(1000, 480);
+
+    GLfloat m_vertices[] = {
+        0.0f, 0.707f,-0.5f,
+        -0.5f,0.5f, -0.5f
+    };
+    nodeLine d1;
+    d1.vertex = m_vertices;
+    d1.vertex_size = 2;
+
+
+    GLfloat kk[] = {
+        0.0f, 0.707f,-0.5f,
+        -0.9f,0.3f, -0.3f
+    };
+
+    nodeLine d2;
+    d2.vertex = kk;
+    d2.vertex_size = 2;
+
+    GLfloat k3[] = {
+        0.0f, 0.707f,-0.5f,
+        -0.7f,0.8f, -0.8f
+    };
+
+    nodeLine d3;
+    d3.vertex = k3;
+    d3.vertex_size = 2;
+
+    window.lineSet.push_back(d1);
+    window.lineSet.push_back(d2);
+    window.lineSet.push_back(d3);
+
     window.show();
 
     window.setAnimating(true);
@@ -97,109 +76,3 @@ int main(int argc, char **argv)
     return app.exec();
 }
 
-
-static const char *vertexShaderSource =
-        "attribute highp vec4 posAttr;\n"
-        "attribute mediump float pointSizeAttr;\n"
-        "attribute lowp vec4 colAttr;\n"
-        "varying lowp vec4 col;\n"
-        "uniform highp mat4 matrix;\n"
-        "void main() {\n"
-        "   col = colAttr;\n"
-        "   gl_Position = matrix * posAttr;\n"
-        "   gl_PointSize = 12.0f;\n"
-        "}\n";
-
-static const char *fragmentShaderSource =
-        "varying lowp vec4 col;\n"
-        "void main() {\n"
-        "   gl_FragColor = col;\n"
-        "}\n";
-
-void glWindow::initialize()
-{
-    m_program = new QOpenGLShaderProgram(this);
-    m_program->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
-    m_program->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource);
-    m_program->link();
-    m_posAttr = m_program->attributeLocation("posAttr");
-    m_colAttr = m_program->attributeLocation("colAttr");
-    m_pointSizeAttr = m_program->attributeLocation("pointSizeAttr");
-    m_matrixUniform = m_program->uniformLocation("matrix");
-}
-
-void glWindow::render()
-{
-    const qreal retinaScale = devicePixelRatio();
-    glViewport(0, 0, width() * retinaScale, height() * retinaScale);
-
-
-    glClear(GL_COLOR_BUFFER_BIT);
-    glClearColor(1,1,1,1);
-    glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
-    glEnable(GL_POINT_SMOOTH);
-    glEnable(GL_LINE_SMOOTH);
-    glEnable(GL_BLEND) ;
-    glHint(GL_POINT_SMOOTH, GL_NICEST); //图像渲染质量
-
-    m_program->bind();
-    QMatrix4x4 matrix;
-    matrix.perspective(60.0f, 4.0f/3.0f, 0.1f, 100.0f);
-    matrix.translate(0, 0, -2);
-    matrix.rotate(100.0f * m_frame / screen()->refreshRate(), 0, 1, 0);
-
-    m_program->setUniformValue(m_matrixUniform, matrix);
-
-    GLfloat vertices[] = {
-        0.0f, 0.707f,-0.5f,
-        -0.5f,0.5f, -0.5f,
-        0.5f,0.5f, 0.5f,
-        0.1f,0.1f, 0.1f,
-        0.4f,0.4f, 0.2f,
-        -0.2f,-0.3f,0.5f
-    };
-
-    GLfloat colors[] = {
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f
-    };
-
-
-    GLfloat pointSize[] = {
-        11.0f, 11.0f, 11.0f,11.0f,11.0f,11.0f
-    };
-
-
-
-    //qDebug()<<glGetError();
-
-    glVertexAttribPointer(m_posAttr, 3, GL_FLOAT, GL_FALSE, 0, vertices);
-    glVertexAttribPointer(m_pointSizeAttr, 1, GL_FLOAT, GL_FALSE, 0, pointSize);
-    glVertexAttribPointer(m_colAttr, 3, GL_FLOAT, GL_FALSE, 0, colors);
-
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-
-
-
-
-    glLineWidth(0.7f);
-    glDrawArrays(GL_POINTS, 0, sizeof(vertices)/sizeof(vertices[0])/3);
-    glDrawArrays(GL_LINE_STRIP, 0, sizeof(vertices)/sizeof(vertices[0])/3);
-
-
-
-    glDisableVertexAttribArray(2);
-    glDisableVertexAttribArray(1);
-    glDisableVertexAttribArray(0);
-
-    m_program->release();
-
-    ++m_frame;
-}
