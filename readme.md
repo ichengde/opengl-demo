@@ -33,3 +33,5 @@ vertex_size需要与vertex的数目保持一致
  修改colors 
 4. 如何修改点坐标及数量
  修改vertices vertices需要与colors的数目保持一致
+
+todo only glfw version - 0201
